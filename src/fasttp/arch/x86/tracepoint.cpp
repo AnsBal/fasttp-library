@@ -293,10 +293,9 @@ extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
 #endif
 }
 
-thread_local const void* tracepoint_current_return_address;
 extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* st) noexcept
 {
-    tracepoint_current_return_address = st->return_address;
+    void* tracepoint_current_return_address = const_cast<void*>(st->return_address);    
 #ifdef __i386__
     st->return_address = reinterpret_cast<const void*>(st->regs._res);
     auto inline_data = reinterpret_cast<tracepoint_return_inline_data*>(st->regs._res + tracepoint_enter_data_disp);
@@ -309,6 +308,7 @@ extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* s
 #endif
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
+        tp->set_current_return_address(tracepoint_current_return_address);
         tp->call_enter_handler(st->regs);
     }
 #ifdef __i386__
@@ -329,6 +329,11 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
         tp->call_exit_handler(st->regs);
+#ifdef __i386__
+        st->return_address = tp->get_current_return_address();
+#else
+        st->data.return_address = tp->get_current_return_address();
+#endif
     }
     else
     {
@@ -336,11 +341,6 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
         fflush(stderr);
         std::terminate();
     }
-#ifdef __i386__
-    st->return_address = tracepoint_current_return_address;
-#else
-    st->data.return_address = tracepoint_current_return_address;
-#endif
 }
 
 void arch_tracepoint::call_handler(const arch::regs &r) noexcept

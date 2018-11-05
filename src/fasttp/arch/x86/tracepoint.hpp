@@ -63,8 +63,18 @@ namespace dyntrace::fasttp
         void call_enter_handler(const arch::regs& r) noexcept;
         void call_exit_handler(const arch::regs& r) noexcept;
 
-    private:
+        void set_current_return_address(void* current_return_address) 
+        {
+            tracepoint_current_return_address = current_return_address;
+        }
+        void* get_current_return_address()
+        {
+            return tracepoint_current_return_address;
+        }
 
+    private:
+        //TODO make tracepoint_current_return_address thread safe (thread_local)
+        void* tracepoint_current_return_address;
         arch_tracepoint_code* _code;
         handler _user_handler;
         point_handler _trap_handler;

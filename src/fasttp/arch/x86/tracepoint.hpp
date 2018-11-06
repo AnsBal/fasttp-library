@@ -65,7 +65,7 @@ namespace dyntrace::fasttp
 
         void set_current_return_address(void* current_return_address) 
         {
-            this.tracepoint_current_return_address = current_return_address;
+            tracepoint_current_return_address = current_return_address;
         }
         void* get_current_return_address()
         {

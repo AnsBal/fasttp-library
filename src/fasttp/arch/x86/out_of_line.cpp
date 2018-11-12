@@ -244,10 +244,10 @@ uint8_t relative_cond_branch::op_size() const noexcept
 void relative_cond_branch::write_op(buffer_writer &writer) const noexcept
 {
     writer.write(uint8_t{0x0f});
-    if(insn()->size == 2)
-        writer.write(insn()->bytes[0] + 0x10);
+    if(insn()->size == 2) 
+        writer.write(static_cast<uint8_t>(insn()->bytes[0] + 0x10););        
     else
-        writer.write(insn()->bytes[1]);
+        writer.write(static_cast<uint8_t>(insn()->bytes[1]));
 }
 
 int32_t relative_cond_branch::displacement() const noexcept

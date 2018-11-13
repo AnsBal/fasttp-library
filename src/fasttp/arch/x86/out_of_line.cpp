@@ -245,7 +245,7 @@ void relative_cond_branch::write_op(buffer_writer &writer) const noexcept
 {
     writer.write(uint8_t{0x0f});
     if(insn()->size == 2) 
-        writer.write(static_cast<uint8_t>(insn()->bytes[0] + 0x10););        
+        writer.write(static_cast<uint8_t>(insn()->bytes[0] + 0x10));        
     else
         writer.write(static_cast<uint8_t>(insn()->bytes[1]));
 }

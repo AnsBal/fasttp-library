@@ -1,3 +1,2 @@
-
-add_executable(foo foo.cpp)
-target_link_libraries(foo fasttp)
+add_executable(multithread multithread.cpp)
+target_link_libraries(multithread fasttp pthread)

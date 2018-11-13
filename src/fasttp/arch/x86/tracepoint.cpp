@@ -7,6 +7,7 @@
 #include "jmp.hpp"
 #include "out_of_line.hpp"
 
+#include <unordered_map>
 #include <random>
 #include <sys/mman.h>
 
@@ -293,6 +294,7 @@ extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
 #endif
 }
 
+thread_local std::unordered_map<int, void*> return_address_map; 
 extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* st) noexcept
 {
     void* tracepoint_current_return_address = const_cast<void*>(st->return_address);    
@@ -308,7 +310,7 @@ extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* s
 #endif
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
-        tp->set_current_return_address(tracepoint_current_return_address);
+        return_address_map[tp->get_id()] = tracepoint_current_return_address;
         tp->call_enter_handler(st->regs);
     }
 #ifdef __i386__
@@ -330,9 +332,9 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
     {
         tp->call_exit_handler(st->regs);
 #ifdef __i386__
-        st->return_address = tp->get_current_return_address();
+        st->return_address = return_address_map[tp->get_id()];
 #else
-        st->data.return_address = tp->get_current_return_address();
+        st->data.return_address = return_address_map[tp->get_id()];
 #endif
     }
     else
@@ -361,6 +363,8 @@ void arch_tracepoint::call_exit_handler(const arch::regs &r) noexcept
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     : _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}, _location{location}
 {
+    static int id = 0; _id = id++;
+
     bool is_point = std::holds_alternative<point_handler>(_user_handler);
 
     memcpy(&_old_code, _location.as_ptr(), 8);

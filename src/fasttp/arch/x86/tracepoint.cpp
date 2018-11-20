@@ -46,6 +46,7 @@ struct PACKED tracepoint_stack
 {
     arch::regs regs;
     tracepoint_inline_data* inline_data;
+    const void* saved_frame_pointer;
 };
 
 struct PACKED tracepoint_return_enter_stack
@@ -72,7 +73,7 @@ namespace
 #ifdef __i386__
     // For normal tracepoint
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: push %ebp                   */ 0x55,
+        /* 00: push %ebp                   */ 0x55, // Save frame pointer fo the handler
         /* 01: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
         /* 06: pop %ebp                    */ 0x5d,
         /* 07: call *0x8(%ebp)             */ 0xff, 0x55, 0x08
@@ -118,7 +119,9 @@ namespace
     constexpr uint8_t tracepoint_handler_enter_code[] = {
         // Skip the red zone since it could potentially be used by leaf functions
         /* 00: lea -0x80(%rsp), %rsp       */ 0x48, 0x8d, 0x64, 0x24, 0x80,
-        /* 05: call *0x8(%rip)             */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+        /* 05: push %rbp                   */ 0x55, // Save frame pointer fo the handler
+        /* 06: call *0x8(%rip)             */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+
     };
         /* 0b: arch_tracepoint_data        */
         /* 13: __tracepoint_handler        */
@@ -129,7 +132,9 @@ namespace
         /* 24: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
         /* 29: popf                        */ 0x9d,
         /* 2a: pop %rbp                    */ 0x5d,
-        /* 2b: lea 0x80(%rsp), %rsp        */ 0x48, 0x8d, 0xa4, 0x24, 0x80, 0x00, 0x00, 0x00,
+        /* 2b: pop %rbp                    */ 0x5d,
+        /* 2c: lea 0x80(%rsp), %rsp        */ 0x48, 0x8d, 0xa4, 0x24, 0x80, 0x00, 0x00, 0x00,
+ 
     };
         /* 33: ool                         */
         /* 33+ool: jmp back                */
@@ -281,7 +286,10 @@ extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
 #endif
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
-        tp->call_handler(regs);
+        //FIXME if the signal is raised before function prologue, ebp maybe be still pointing the old ebp.  
+        void **ebp = (void**)const_cast<void*>(st->saved_frame_pointer);
+        void* ret = ebp[1];
+        tp->call_handler(regs, ret);
     }
 #ifdef __i386__
     st->sp -= 8;
@@ -311,7 +319,7 @@ extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* s
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
         return_address_map[tp->get_id()] = tracepoint_current_return_address;
-        tp->call_enter_handler(st->regs);
+        tp->call_enter_handler(st->regs, tracepoint_current_return_address);
     }
 #ifdef __i386__
     st->regs.sp -= 8;
@@ -330,11 +338,12 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
 #endif
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
-        tp->call_exit_handler(st->regs);
+        void* tracepoint_current_return_address = return_address_map[tp->get_id()];
+        tp->call_exit_handler(st->regs, tracepoint_current_return_address);
 #ifdef __i386__
-        st->return_address = return_address_map[tp->get_id()];
+        st->return_address = tracepoint_current_return_address;
 #else
-        st->data.return_address = return_address_map[tp->get_id()];
+        st->data.return_address = tracepoint_current_return_address;
 #endif
     }
     else
@@ -345,19 +354,19 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
     }
 }
 
-void arch_tracepoint::call_handler(const arch::regs &r) noexcept
+void arch_tracepoint::call_handler(const arch::regs &r, const void* return_address) noexcept
 {
-    call_handler_nothrow(std::get<point_handler>(_user_handler), location(), r);
+    call_handler_nothrow(std::get<point_handler>(_user_handler), location(), r, return_address);
 }
 
-void arch_tracepoint::call_enter_handler(const arch::regs &r) noexcept
+void arch_tracepoint::call_enter_handler(const arch::regs &r, const void* return_address) noexcept
 {
-    call_handler_nothrow(std::get<0>(std::get<entry_exit_handler>(_user_handler)), location(), r);
+    call_handler_nothrow(std::get<0>(std::get<entry_exit_handler>(_user_handler)), location(), r, return_address);
 }
 
-void arch_tracepoint::call_exit_handler(const arch::regs &r) noexcept
+void arch_tracepoint::call_exit_handler(const arch::regs &r, const void* return_address) noexcept
 {
-    call_handler_nothrow(std::get<1>(std::get<entry_exit_handler>(_user_handler)), location(), r);
+    call_handler_nothrow(std::get<1>(std::get<entry_exit_handler>(_user_handler)), location(), r, return_address);
 }
 
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
@@ -434,13 +443,13 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
         {
 #endif
             _redirects.push_back(context::instance().arch().add_redirect(
-                [code](const void* from, const arch::regs& regs)
+                [code](const void* from, const arch::regs& regs, const void* return_address)
                 {
                     ++code->refcount;
                     if(auto tp = code->tracepoint.load(std::memory_order_relaxed))
                     {
                         if (tp->_trap_handler)
-                            call_handler_nothrow(tp->_trap_handler, from, regs);
+                            call_handler_nothrow(tp->_trap_handler, from, regs, return_address);
                     }
                 },
                 loc, ool_loc)

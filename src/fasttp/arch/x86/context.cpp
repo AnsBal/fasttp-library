@@ -68,8 +68,13 @@ namespace
             if(it != red->end())
             {
                 const auto& h = std::get<point_handler>(it->second);
+
+                //FIXME if the signal is raised before function prologue, ebp maybe be still pointing the old ebp.  
+                greg_t rbp = ctx->uc_mcontext.gregs[REG(BP)];
+                void* return_address = ((void**)rbp)[1];
+
                 if(h)
-                    h(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
+                    h(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs), return_address);
                 target = std::get<code_ptr>(it->second);
             }
         }

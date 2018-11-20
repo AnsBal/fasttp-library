@@ -59,13 +59,13 @@ void do_run()
 	}
 }
 
-void enter_handler(const void *caller, const arch::regs& r)
+void enter_handler(const void *caller, const arch::regs& r, const void *ret)
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(1 + std::rand()/((RAND_MAX + 1u)/1000)));
 	printf("Enter %p     tid: %li CPU:%i\n", caller,gettid(),sched_getcpu());
 };
 
-void exit_handler(const void* caller, const arch::regs& r)
+void exit_handler(const void* caller, const arch::regs& r, const void *ret)
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(1 + std::rand()/((RAND_MAX + 1u)/1000)));
         printf("Exit  %p     tid: %li CPU:%i\n", caller,gettid(),sched_getcpu());

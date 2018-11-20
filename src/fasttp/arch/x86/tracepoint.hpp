@@ -59,9 +59,9 @@ namespace dyntrace::fasttp
             return address_range{_code->handler.as_int(), _code->handler.as_int() + _code->handler_size};
         }
 
-        void call_handler(const arch::regs& r) noexcept;
-        void call_enter_handler(const arch::regs& r) noexcept;
-        void call_exit_handler(const arch::regs& r) noexcept;
+        void call_handler(const arch::regs& r, const void* return_address) noexcept;
+        void call_enter_handler(const arch::regs& r, const void* return_address) noexcept;
+        void call_exit_handler(const arch::regs& r, const void* return_address) noexcept;
 
         int get_id()
         {

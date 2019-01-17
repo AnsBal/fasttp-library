@@ -43,11 +43,11 @@ void cleanup_fasttp()
 
 int main()
 {
-	setup_fasttp();
+	//setup_fasttp();
 	
 	printf("Called n_call() %i times\n", n_calls(NUMBER_CALLS));
 	
-	cleanup_fasttp();
+	//cleanup_fasttp();
 
     	return 0;
 }

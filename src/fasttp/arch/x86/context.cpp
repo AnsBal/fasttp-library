@@ -69,7 +69,8 @@ namespace
             {
                 const auto& h = std::get<point_handler>(it->second);
 
-                //FIXME if the signal is raised before function prologue, ebp maybe be still pointing the old ebp.  
+                //FIXME if the signal is raised before function prologue, ebp maybe be still pointing the old ebp.
+                // ifdef __x86_64_32__  
                 greg_t rbp = ctx->uc_mcontext.gregs[REG(BP)];
                 void* return_address = ((void**)rbp)[1];
 

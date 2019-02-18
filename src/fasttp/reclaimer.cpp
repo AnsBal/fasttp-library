@@ -18,6 +18,7 @@ reclaimer& reclaimer::instance()
     return r;
 }
 
+struct sigaction old_handler{};
 reclaimer::reclaimer() noexcept
 {
     static std::once_flag once_flag;
@@ -26,7 +27,7 @@ reclaimer::reclaimer() noexcept
         struct sigaction sa{};
         sa.sa_flags = SA_SIGINFO;
         sa.sa_sigaction = &reclaimer::on_usr1;
-        sigaction(SIGUSR1, &sa, nullptr);
+        sigaction(SIGUSR1, &sa, &old_handler);
     });
     _thread = std::thread{&reclaimer::run, this};
 }
@@ -148,8 +149,10 @@ namespace
         {
             std::unique_lock lock{_lock};
             if(--_count == 0)
-            {
-                _on_done();
+            {   
+                try {
+                    _on_done();
+                } catch(const std::bad_function_call& e) {}
                 _on_done = nullptr;
                 lock.unlock();
                 _cond.notify_one();
@@ -233,7 +236,7 @@ void reclaimer::reclaim_batch(reclaimer::request_map&& to_remove)
     }
 
     // If we wait too long, we just put back the data, else it is deleted.
-    // It means that no other thread can be signaled with SIGUSR1 (weird)
+    // It means that no other thread can be signaled with SIGUSR1 (weird) 
     if(ready.wait_for(reclaim_period) == std::future_status::timeout)
     {
         auto _tr = _to_remove.lock();
@@ -262,8 +265,17 @@ void reclaimer::wait_last()
 #define REG_IP uc_mcontext.arm_pc
 #endif
 
-void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
+void reclaimer::on_usr1(int sig_number, siginfo_t* sig, void* _ctx)
 {
+    //TODO execute the appropriate handler based on whom raised the signal (fasttp or the application)
+    if(old_handler.sa_handler || old_handler.sa_sigaction)
+    {
+        if(old_handler.sa_flags & SA_SIGINFO)
+            old_handler.sa_sigaction(sig_number, sig, _ctx);
+        else
+            old_handler.sa_handler(sig_number);
+    }
+
     worker_lock lock{current::barrier};
     try
     {

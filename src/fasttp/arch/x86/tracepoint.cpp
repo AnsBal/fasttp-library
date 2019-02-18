@@ -340,6 +340,9 @@ extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st)
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
         std::stack<void*>* stack = &tracepoint_rstack_map[tp->get_id()];
+        if(stack->empty()) {
+             return;
+        }
         void* tracepoint_current_return_address = stack->top();
         stack->pop();
         tp->call_exit_handler(st->regs, tracepoint_current_return_address);
@@ -473,7 +476,6 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
 arch_tracepoint::~arch_tracepoint()
 {
     disable();
-    _code->tracepoint.store(nullptr, std::memory_order_seq_cst);
     reclaimer::instance().reclaim(
         _location.as_int(),
         reclaimer::reclaim_request{
@@ -484,6 +486,7 @@ arch_tracepoint::~arch_tracepoint()
             },
             [code = _code]() -> void
             {
+                code->tracepoint.store(nullptr, std::memory_order_seq_cst);
                 context::instance().arch().allocator()->free(code->handler, code->handler_size);
                 delete code;
             },

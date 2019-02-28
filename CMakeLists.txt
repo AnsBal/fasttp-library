@@ -34,12 +34,12 @@ set(CMAKE_BUILD_RPATH ${ARCH_INSTALL}/lib)
 
 include_directories(include)
 
-install(DIRECTORY include/dyntrace DESTINATION include)
-install(FILES dyntrace.cmake DESTINATION share/cmake)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dyntrace-defs.cmake DESTINATION share/cmake)
-
 add_subdirectory(examples)
 add_subdirectory(src)
+
+install(DIRECTORY include/dyntrace DESTINATION /usr/include/)
+install(FILES dyntrace.cmake DESTINATION share/cmake)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dyntrace-defs.cmake DESTINATION share/cmake)
 
 set(CPACK_GENERATOR TGZ)
 set(CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM_NAME})

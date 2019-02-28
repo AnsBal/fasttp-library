@@ -12,3 +12,4 @@ dyntrace_shared_library(fasttp
 target_link_libraries(fasttp process pthread ${${ARCH}_lib})
 target_include_directories(fasttp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+install(TARGETS fasttp DESTINATION /usr/lib)

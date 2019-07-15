@@ -473,7 +473,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     enable();
 }
 
-arch_tracepoint::~arch_tracepoint()
+void arch_tracepoint::remove_tracepoint()
 {
     disable();
     reclaimer::instance().reclaim(
@@ -486,6 +486,7 @@ arch_tracepoint::~arch_tracepoint()
             },
             [code = _code]() -> void
             {
+                delete code->tracepoint.load(std::memory_order_seq_cst);
                 code->tracepoint.store(nullptr, std::memory_order_seq_cst);
                 context::instance().arch().allocator()->free(code->handler, code->handler_size);
                 delete code;
@@ -493,6 +494,10 @@ arch_tracepoint::~arch_tracepoint()
             _code
         }
     );
+}
+
+arch_tracepoint::~arch_tracepoint()
+{
 }
 
 void arch_tracepoint::enable() noexcept

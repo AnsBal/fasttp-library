@@ -43,6 +43,7 @@ namespace dyntrace::fasttp
 
         void enable() noexcept;
         void disable() noexcept;
+        void remove_tracepoint();
 
         bool enabled() const noexcept
         {

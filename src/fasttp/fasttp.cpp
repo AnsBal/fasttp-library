@@ -12,7 +12,8 @@ tracepoint::tracepoint(void* loc, handler handler, const options &ops)
 
 tracepoint::~tracepoint()
 {
-    delete _impl;
+    //delete _impl;
+    _impl->remove_tracepoint();
 }
 
 tracepoint& tracepoint::operator=(tracepoint&& tp)

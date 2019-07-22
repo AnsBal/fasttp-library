@@ -9,7 +9,7 @@ Libraries
 - [Capstone](http://www.capstone-engine.org/)
 
 Programs
-- [Cmake 3+](https://cmake.org/download/)
+- [Cmake 3.8+](https://cmake.org/download/)
 - C++17 capable compiler and libraries
 
 ## Building & Installing
@@ -32,4 +32,5 @@ To trace x86 programs, you need the x86 build on x64.
 
 # Contact
 Christian Harper-Cyr <charpercyr@gmail.com>
+Balboul Anas <anasbalbo@gmail.com>
 
